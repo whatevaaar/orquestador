@@ -33,9 +33,10 @@ La clase SIEMPRE hereda de `Escena` (importada de motor). NUNCA uses otro nombre
 Correcto:   class MiClase(Escena):
 INCORRECTO: class MiClase(MiEscena):   <- MiEscena NO existe, causara NameError
 
-## IMPORTS OBLIGATORIOS (exactamente estos, nada mas)
+## IMPORTS OBLIGATORIOS (solo estos)
 ```python
 import math
+import random
 import pygame
 from motor import Contexto, Escena
 ```
@@ -65,7 +66,16 @@ class NombreEscena(Escena):
         # dibujar con pygame.draw.*
 ```
 
+## ATRIBUTOS DE Contexto (EXACTOS — no existen otros)
+ctx.segundos_transcurridos  # float — tiempo total
+ctx.numero_frame            # int — frame actual
+ctx.fps_objetivo            # int
+ctx.ancho                   # int
+ctx.alto                    # int
+INCORRECTO: ctx.t, ctx.time, ctx.tiempo — NO EXISTEN, causaran AttributeError
+
 ## ERRORES COMUNES A EVITAR
+- NO usar ctx.t ni ctx.time — el atributo correcto es ctx.segundos_transcurridos
 - NO usar self.t en configurar() — inicializalo con self.t = 0.0 en configurar()
 - NO usar range(float) — siempre int(): range(int(self.n * factor))
 - NO subclasificar MiEscena — la base es Escena
@@ -99,6 +109,45 @@ Responde UNICAMENTE con el bloque de codigo. Sin texto antes ni despues:
 
     texto = respuesta.choices[0].message.content.strip()
     match = re.search(r"```python\n(.*?)```", texto, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-    return texto
+    codigo = match.group(1).strip() if match else texto
+    return _sanitizar(codigo)
+
+
+# Correcciones automáticas de errores recurrentes de modelos pequeños
+_SUSTITUCIONES = [
+    # ctx.t / ctx.time -> ctx.segundos_transcurridos
+    (re.compile(r'\bctx\.t\b'), 'ctx.segundos_transcurridos'),
+    (re.compile(r'\bctx\.time\b'), 'ctx.segundos_transcurridos'),
+    (re.compile(r'\bctx\.tiempo\b'), 'ctx.segundos_transcurridos'),
+    # self.width / self.height -> self.config.ancho / self.config.alto
+    (re.compile(r'\bself\.width\b'), 'self.config.ancho'),
+    (re.compile(r'\bself\.height\b'), 'self.config.alto'),
+    # math.random() no existe -> random.random()
+    (re.compile(r'\bmath\.random\b'), 'random.random'),
+    (re.compile(r'\bmath\.randint\b'), 'random.randint'),
+    (re.compile(r'\bmath\.uniform\b'), 'random.uniform'),
+]
+
+_INIT_ANCHO_ALTO = """\
+        self.ancho = self.config.ancho
+        self.alto = self.config.alto
+"""
+
+
+def _sanitizar(codigo: str) -> str:
+    for patron, reemplazo in _SUSTITUCIONES:
+        codigo = patron.sub(reemplazo, codigo)
+
+    # Inyectar import random si el código lo usa pero no lo importa
+    if 'random.' in codigo and 'import random' not in codigo:
+        codigo = 'import random\n' + codigo
+
+    # Si usa self.ancho/self.alto pero no los inicializa en configurar(), inyectar al inicio
+    if 'self.ancho' in codigo and 'self.ancho = self.config.ancho' not in codigo:
+        codigo = re.sub(
+            r'(def configurar\(self\)[^:]*:\n)',
+            r'\1' + _INIT_ANCHO_ALTO,
+            codigo,
+        )
+
+    return codigo

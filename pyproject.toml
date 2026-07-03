@@ -8,10 +8,13 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "openai>=1.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
 ]
 
 [project.scripts]
 orc = "orc.cli:main"
+orc-serve = "orc.api:serve"
 
 [tool.setuptools.packages.find]
 where = ["."]
