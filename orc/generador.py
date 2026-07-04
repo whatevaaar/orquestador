@@ -136,6 +136,7 @@ _INIT_ANCHO_ALTO = """\
 # Atributos del sistema que nunca se inyectan
 _ATTRS_SISTEMA = frozenset({
     'config', 'ancho', 'alto', 't', 'n', 'vel', 'velocidad',
+    'params',  # dict de clase, nunca sobreescribir
     '__class__', '__dict__',
 })
 
@@ -201,6 +202,19 @@ def _sanitizar(codigo: str) -> str:
             r'\1' + _INIT_ANCHO_ALTO,
             codigo,
         )
+
+    # Inyectar actualizar() mínimo si el modelo lo omitió (es abstracto — sin él el motor rechaza la clase)
+    # Solo aplica a archivos con definición de clase Escena
+    if 'class ' in codigo and 'Escena' in codigo and 'def actualizar(' not in codigo:
+        minimo = (
+            '\n    def actualizar(self, ctx: Contexto) -> None:\n'
+            '        self.t = ctx.segundos_transcurridos\n'
+        )
+        # Insertar antes de dibujar si existe, si no al final de la clase
+        if '\n    def dibujar(' in codigo:
+            codigo = codigo.replace('\n    def dibujar(', minimo + '\n    def dibujar(', 1)
+        else:
+            codigo = codigo.rstrip() + minimo
 
     # Inyectar inicializaciones para atributos usados en actualizar/dibujar pero no definidos
     faltantes = _attrs_no_inicializados(codigo)

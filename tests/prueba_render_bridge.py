@@ -136,10 +136,13 @@ def prueba_renderizar_video_sin_stdout_ni_renders_lanza_error(tmp_path):
     mock_resultado.stdout = "Sin ruta de video aqui\n"
     mock_resultado.stderr = ""
 
-    # Sin directorio renders/ → debe lanzar RuntimeError
+    mock_renders = MagicMock()
+    mock_renders.rglob.return_value = iter([])  # sin candidatos
+
     with (
         patch("orc.render_bridge.shutil.which", return_value="/bin/motor"),
         patch("orc.render_bridge.subprocess.run", return_value=mock_resultado),
+        patch("orc.render_bridge.Path", side_effect=lambda p: mock_renders if p == "renders" else Path(p)),
     ):
         with pytest.raises(RuntimeError, match="No se encontro video.mp4"):
             renderizar_video(ruta_escena, duracion=10.0)

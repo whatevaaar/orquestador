@@ -135,6 +135,39 @@ def prueba_inject_attr_usado_en_actualizar_sin_init():
     assert 'self.x = 0.0' in resultado
 
 
+def prueba_no_inyecta_self_params():
+    # params es un dict de clase — nunca debe pisarse con 0.0
+    codigo = (
+        "from motor import Contexto, Escena\n"
+        "class X(Escena):\n"
+        "    params = {'n': 50}\n"
+        "    def configurar(self):\n"
+        "        self.t = 0.0\n"
+        "    def actualizar(self, ctx):\n"
+        "        self.t = ctx.segundos_transcurridos\n"
+        "    def dibujar(self, surface):\n"
+        "        n = self.params['n']\n"
+    )
+    resultado = _sanitizar(codigo)
+    assert 'self.params = 0.0' not in resultado
+
+
+def prueba_inject_actualizar_cuando_falta():
+    # Reproduce el bug: clase sin actualizar() → el motor la rechaza
+    codigo = (
+        "from motor import Contexto, Escena\n"
+        "class EscenaTitulo(Escena):\n"
+        "    params = {}\n"
+        "    def configurar(self):\n"
+        "        self.t = 0.0\n"
+        "    def dibujar(self, surface):\n"
+        "        surface.fill((0, 0, 0))\n"
+    )
+    resultado = _sanitizar(codigo)
+    assert 'def actualizar(' in resultado
+    assert 'ctx.segundos_transcurridos' in resultado
+
+
 def prueba_clase_sin_herencia_obtiene_escena():
     codigo = (
         "from motor import Contexto, Escena\n"
