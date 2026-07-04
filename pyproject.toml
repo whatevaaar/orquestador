@@ -16,6 +16,14 @@ dependencies = [
 orc = "orc.cli:main"
 orc-serve = "orc.api:serve"
 
+[project.optional-dependencies]
+test = ["pytest>=8.0", "httpx>=0.27"]
+
+[tool.pytest.ini_options]
+python_files = "prueba_*.py"
+python_functions = "prueba_*"
+testpaths = ["tests"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["orc*"]

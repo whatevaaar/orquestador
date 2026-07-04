@@ -126,7 +126,13 @@ _montar_frontend()
 
 
 def serve():
+    from .cli import _cargar_env
+    _cargar_env()
     import uvicorn
     host = os.environ.get("ORC_HOST", "0.0.0.0")
     port = int(os.environ.get("ORC_PORT", "8000"))
     uvicorn.run("orc.api:app", host=host, port=port, reload=False)
+
+
+if __name__ == "__main__":
+    serve()

@@ -60,7 +60,10 @@ def _parsear(texto: str) -> dict:
     if "```" in texto:
         texto = re.sub(r"```[a-z]*\n?", "", texto).strip()
     try:
-        return json.loads(texto)
+        data = json.loads(texto)
+        if "aprobado" not in data:
+            data["aprobado"] = data.get("score", 0) >= 7
+        return data
     except json.JSONDecodeError:
         match = re.search(r'"?score"?\s*[:=]\s*(\d+)', texto)
         score = int(match.group(1)) if match else 5

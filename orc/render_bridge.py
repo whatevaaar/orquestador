@@ -1,5 +1,21 @@
+import shutil
 import subprocess
+import sys
 from pathlib import Path
+
+
+def _cmd_motor() -> str:
+    cmd = shutil.which("motor")
+    if cmd:
+        return cmd
+    sufijo = Path("Scripts/motor.exe") if sys.platform == "win32" else Path("bin/motor")
+    candidato = Path(__file__).parent.parent.parent / "motor" / ".venv" / sufijo
+    if candidato.exists():
+        return str(candidato)
+    raise RuntimeError(
+        "No se encontró el comando 'motor'. "
+        "Activa el venv de motor o agrégalo al PATH."
+    )
 
 
 def renderizar(ruta_escena: Path, ruta_salida: Path, duracion: float = 3.0) -> list[Path]:
@@ -7,7 +23,7 @@ def renderizar(ruta_escena: Path, ruta_salida: Path, duracion: float = 3.0) -> l
 
     resultado = subprocess.run(
         [
-            "motor", "render", str(ruta_escena),
+            _cmd_motor(), "render", str(ruta_escena),
             "--ancho", "540",
             "--alto", "960",
             "--duracion", str(duracion),
@@ -40,7 +56,7 @@ def renderizar_video(ruta_escena: Path, duracion: float) -> Path:
     """Render final que genera video.mp4 y retorna su ruta. Sin servidor HTTP."""
     resultado = subprocess.run(
         [
-            "motor", "render", str(ruta_escena),
+            _cmd_motor(), "render", str(ruta_escena),
             "--duracion", str(duracion),
             "--efecto", "vineta",
             "--video",
@@ -73,7 +89,7 @@ def renderizar_con_servidor(ruta_escena: Path, duracion: float) -> None:
     """Render final + servidor HTTP para uso desde CLI."""
     subprocess.run(
         [
-            "motor", "render", str(ruta_escena),
+            _cmd_motor(), "render", str(ruta_escena),
             "--duracion", str(duracion),
             "--efecto", "vineta",
             "--servir",
