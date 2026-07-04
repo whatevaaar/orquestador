@@ -170,6 +170,26 @@ def _sanitizar(codigo: str) -> str:
     for patron, reemplazo in _SUSTITUCIONES:
         codigo = patron.sub(reemplazo, codigo)
 
+    # Asegurar import correcto de motor
+    if 'class' in codigo and 'from motor import' not in codigo:
+        codigo = 'from motor import Contexto, Escena\n' + codigo
+    elif 'from motor import' in codigo and 'Escena' not in codigo.split('from motor import')[1].split('\n')[0]:
+        # import de motor existe pero sin Escena
+        codigo = re.sub(
+            r'from motor import ([^\n]+)',
+            lambda m: f'from motor import {m.group(1).rstrip()}, Escena'
+            if 'Escena' not in m.group(1) else m.group(0),
+            codigo,
+        )
+
+    # Corregir clase sin herencia o con base incorrecta
+    # class Foo: -> class Foo(Escena):
+    codigo = re.sub(r'class (\w+)\s*:', r'class \1(Escena):', codigo)
+    # class Foo(object): -> class Foo(Escena):
+    codigo = re.sub(r'class (\w+)\(object\)', r'class \1(Escena)', codigo)
+    # class Foo(EscenaBase): -> class Foo(Escena):  (nombre incorrecto de base)
+    codigo = re.sub(r'class (\w+)\((?!Escena\b)\w*[Ee]scena\w*\)', r'class \1(Escena)', codigo)
+
     # Inyectar import random si el código lo usa pero no lo importa
     if 'random.' in codigo and 'import random' not in codigo:
         codigo = 'import random\n' + codigo

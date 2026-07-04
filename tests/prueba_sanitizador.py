@@ -135,6 +135,39 @@ def prueba_inject_attr_usado_en_actualizar_sin_init():
     assert 'self.x = 0.0' in resultado
 
 
+def prueba_clase_sin_herencia_obtiene_escena():
+    codigo = (
+        "from motor import Contexto, Escena\n"
+        "class MiEscena:\n"
+        "    def configurar(self): pass\n"
+    )
+    resultado = _sanitizar(codigo)
+    assert 'class MiEscena(Escena)' in resultado
+
+
+def prueba_clase_con_object_obtiene_escena():
+    codigo = (
+        "from motor import Contexto, Escena\n"
+        "class MiEscena(object):\n"
+        "    def configurar(self): pass\n"
+    )
+    resultado = _sanitizar(codigo)
+    assert 'class MiEscena(Escena)' in resultado
+
+
+def prueba_import_motor_faltante_se_inyecta():
+    codigo = "class MiEscena:\n    def configurar(self): pass\n"
+    resultado = _sanitizar(codigo)
+    assert 'from motor import' in resultado
+    assert 'Escena' in resultado
+
+
+def prueba_import_motor_sin_escena_se_completa():
+    codigo = "from motor import Contexto\nclass MiEscena(Escena):\n    def configurar(self): pass\n"
+    resultado = _sanitizar(codigo)
+    assert 'Escena' in resultado.split('from motor import')[1].split('\n')[0]
+
+
 def prueba_no_inyecta_attrs_de_sistema():
     codigo = (
         "class X(Escena):\n"
