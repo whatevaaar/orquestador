@@ -80,6 +80,10 @@ INCORRECTO: ctx.t, ctx.time, ctx.tiempo — NO EXISTEN, causaran AttributeError
 - NO usar range(float) — siempre int(): range(int(self.n * factor))
 - NO subclasificar MiEscena — la base es Escena
 - NO importar nada fuera de pygame, math, motor
+- NO usar constantes (MAYUSCULAS) sin definirlas ANTES de la clase. Correcto:
+  CIELO = (10, 20, 50)
+  class MiEscena(Escena):
+      def configurar(self): ...  # puede usar CIELO aquí
 
 ## EJEMPLO DE REFERENCIA
 ```python
@@ -115,10 +119,13 @@ Responde UNICAMENTE con el bloque de codigo. Sin texto antes ni despues:
 
 # Correcciones automáticas de errores recurrentes de modelos pequeños
 _SUSTITUCIONES = [
-    # ctx.t / ctx.time -> ctx.segundos_transcurridos
+    # ctx.t / ctx.time / ctx.time_transcurrido -> ctx.segundos_transcurridos
     (re.compile(r'\bctx\.t\b'), 'ctx.segundos_transcurridos'),
     (re.compile(r'\bctx\.time\b'), 'ctx.segundos_transcurridos'),
     (re.compile(r'\bctx\.tiempo\b'), 'ctx.segundos_transcurridos'),
+    (re.compile(r'\bctx\.time_transcurrido\b'), 'ctx.segundos_transcurridos'),
+    (re.compile(r'\bctx\.tiempo_transcurrido\b'), 'ctx.segundos_transcurridos'),
+    (re.compile(r'\bctx\.surface\b'), 'surface'),  # ctx.surface no existe
     # self.width / self.height -> self.config.ancho / self.config.alto
     (re.compile(r'\bself\.width\b'), 'self.config.ancho'),
     (re.compile(r'\bself\.height\b'), 'self.config.alto'),
@@ -153,7 +160,9 @@ def _attrs_no_inicializados(codigo: str) -> set[str]:
         if m:
             usados |= set(re.findall(r'self\.(\w+)', m.group(1)))
 
-    return usados - asignados - _ATTRS_SISTEMA
+    # Excluir métodos definidos en la misma clase
+    metodos = set(re.findall(r'def (\w+)\(self', codigo))
+    return usados - asignados - _ATTRS_SISTEMA - metodos
 
 
 def _valor_inicial(nombre: str) -> str:

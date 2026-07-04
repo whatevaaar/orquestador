@@ -201,6 +201,32 @@ def prueba_import_motor_sin_escena_se_completa():
     assert 'Escena' in resultado.split('from motor import')[1].split('\n')[0]
 
 
+def prueba_no_inyecta_metodos_como_atributos():
+    # Reproduce el bug: _dibujar_mar es método pero se usaba en dibujar → se inyectaba 0.0
+    codigo = (
+        "class X(Escena):\n"
+        "    def configurar(self):\n"
+        "        self.t = 0.0\n"
+        "    def actualizar(self, ctx):\n"
+        "        self.t = ctx.segundos_transcurridos\n"
+        "    def dibujar(self, surface):\n"
+        "        self._dibujar_fondo(surface)\n"
+        "    def _dibujar_fondo(self, surface):\n"
+        "        surface.fill((0, 0, 0))\n"
+    )
+    resultado = _sanitizar(codigo)
+    assert 'self._dibujar_fondo = 0.0' not in resultado
+
+
+def prueba_ctx_time_transcurrido_sustituido():
+    assert "ctx.segundos_transcurridos" in _sanitizar("self.t = ctx.time_transcurrido")
+
+
+def prueba_ctx_surface_sustituido():
+    resultado = _sanitizar("def dibujar(self, surface):\n    pygame.draw.circle(ctx.surface, c, p, r)")
+    assert "ctx.surface" not in resultado
+
+
 def prueba_no_inyecta_attrs_de_sistema():
     codigo = (
         "class X(Escena):\n"
