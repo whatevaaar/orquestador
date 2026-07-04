@@ -113,3 +113,38 @@ def prueba_multiples_sustituciones_en_mismo_codigo():
 def prueba_ctx_t_no_toca_segundos_transcurridos():
     codigo = "t = ctx.segundos_transcurridos"
     assert _sanitizar(codigo) == codigo
+
+
+def prueba_inject_attr_usado_en_actualizar_sin_init():
+    # Reproduce el bug: self.y usado en RHS de actualizar pero no en configurar
+    codigo = (
+        "class Ofelia(Escena):\n"
+        "    params = {}\n"
+        "    def configurar(self):\n"
+        "        self.t = 0.0\n"
+        "        self.ancho = self.config.ancho\n"
+        "        self.alto = self.config.alto\n"
+        "    def actualizar(self, ctx):\n"
+        "        self.t = ctx.segundos_transcurridos\n"
+        "        self.x, self.y = self.t * 10, self.alto - (self.y + 9.8 * self.t**2) / 2\n"
+        "    def dibujar(self, surface):\n"
+        "        surface.fill((0, 0, 0))\n"
+    )
+    resultado = _sanitizar(codigo)
+    assert 'self.y = 0.0' in resultado
+    assert 'self.x = 0.0' in resultado
+
+
+def prueba_no_inyecta_attrs_de_sistema():
+    codigo = (
+        "class X(Escena):\n"
+        "    def configurar(self):\n"
+        "        self.t = 0.0\n"
+        "    def actualizar(self, ctx):\n"
+        "        self.t = ctx.segundos_transcurridos\n"
+        "        _ = self.config.ancho\n"
+        "    def dibujar(self, surface):\n"
+        "        pass\n"
+    )
+    resultado = _sanitizar(codigo)
+    assert 'self.config = ' not in resultado

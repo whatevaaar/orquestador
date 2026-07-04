@@ -133,6 +133,38 @@ _INIT_ANCHO_ALTO = """\
         self.alto = self.config.alto
 """
 
+# Atributos del sistema que nunca se inyectan
+_ATTRS_SISTEMA = frozenset({
+    'config', 'ancho', 'alto', 't', 'n', 'vel', 'velocidad',
+    '__class__', '__dict__',
+})
+
+
+def _attrs_no_inicializados(codigo: str) -> set[str]:
+    """Detecta self.<attr> usados en actualizar/dibujar pero no asignados en configurar."""
+    m_conf = re.search(r'def configurar\(self\)[^:]*:(.*?)(?=\n    def |\Z)', codigo, re.DOTALL)
+    conf_body = m_conf.group(1) if m_conf else ''
+    asignados = set(re.findall(r'self\.(\w+)\s*=', conf_body))
+
+    usados: set[str] = set()
+    for metodo in ('actualizar', 'dibujar'):
+        m = re.search(rf'def {metodo}\(self[^)]*\)[^:]*:(.*?)(?=\n    def |\Z)', codigo, re.DOTALL)
+        if m:
+            usados |= set(re.findall(r'self\.(\w+)', m.group(1)))
+
+    return usados - asignados - _ATTRS_SISTEMA
+
+
+def _valor_inicial(nombre: str) -> str:
+    nombre_lower = nombre.lower()
+    if any(nombre_lower.endswith(s) for s in ('x', 'y', 'z', 'vx', 'vy', 'vz')):
+        return '0.0'
+    if any(k in nombre_lower for k in ('vel', 'speed', 'angulo', 'angle', 'rad', 'pos', 'grav')):
+        return '0.0'
+    if any(k in nombre_lower for k in ('color', 'surf', 'img', 'font', 'lista', 'list', 'items')):
+        return None  # no inyectar — podría ser un objeto complejo
+    return '0.0'
+
 
 def _sanitizar(codigo: str) -> str:
     for patron, reemplazo in _SUSTITUCIONES:
@@ -149,5 +181,20 @@ def _sanitizar(codigo: str) -> str:
             r'\1' + _INIT_ANCHO_ALTO,
             codigo,
         )
+
+    # Inyectar inicializaciones para atributos usados en actualizar/dibujar pero no definidos
+    faltantes = _attrs_no_inicializados(codigo)
+    if faltantes:
+        lineas_init = ''
+        for attr in sorted(faltantes):
+            val = _valor_inicial(attr)
+            if val is not None:
+                lineas_init += f'        self.{attr} = {val}\n'
+        if lineas_init:
+            codigo = re.sub(
+                r'(def configurar\(self\)[^:]*:\n)',
+                r'\1' + lineas_init,
+                codigo,
+            )
 
     return codigo
