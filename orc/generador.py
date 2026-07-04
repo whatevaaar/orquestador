@@ -165,6 +165,28 @@ def _attrs_no_inicializados(codigo: str) -> set[str]:
     return usados - asignados - _ATTRS_SISTEMA - metodos
 
 
+_METODOS_LISTA = frozenset({'append', 'extend', 'insert', 'pop', 'remove', 'clear', 'sort', 'reverse'})
+
+
+def _listas_sin_self(codigo: str) -> set[str]:
+    """Detecta nombres de listas usados sin self. en actualizar/dibujar."""
+    patron = re.compile(r'(?<!\bself\.)\b([a-z]\w*)\.(' + '|'.join(_METODOS_LISTA) + r')\(')
+    encontradas: set[str] = set()
+
+    for metodo in ('actualizar', 'dibujar'):
+        m = re.search(rf'def {metodo}\(self[^)]*\)[^:]*:(.*?)(?=\n    def |\Z)', codigo, re.DOTALL)
+        if not m:
+            continue
+        cuerpo = m.group(1)
+        for match in patron.finditer(cuerpo):
+            nombre = match.group(1)
+            # Solo si no está asignado localmente antes de este uso
+            if not re.search(rf'\b{nombre}\s*=', cuerpo[:match.start()]):
+                encontradas.add(nombre)
+
+    return encontradas - _ATTRS_SISTEMA
+
+
 def _valor_inicial(nombre: str) -> str:
     nombre_lower = nombre.lower()
     if any(nombre_lower.endswith(s) for s in ('x', 'y', 'z', 'vx', 'vy', 'vz')):
@@ -224,6 +246,25 @@ def _sanitizar(codigo: str) -> str:
             codigo = codigo.replace('\n    def dibujar(', minimo + '\n    def dibujar(', 1)
         else:
             codigo = codigo.rstrip() + minimo
+
+    # Corregir listas usadas sin self. en actualizar/dibujar
+    for nombre in _listas_sin_self(codigo):
+        # Añadir self. prefix donde el nombre se usa con métodos de lista
+        patron_uso = re.compile(
+            rf'(?<!\bself\.)\b{re.escape(nombre)}\b(?=\s*\.(?:' + '|'.join(_METODOS_LISTA) + r'))'
+        )
+        codigo = patron_uso.sub(f'self.{nombre}', codigo)
+        # También reemplazar accesos de iteración bare: `for x in nombre`
+        codigo = re.sub(rf'\bfor\s+(\w+)\s+in\s+{re.escape(nombre)}\b', rf'for \1 in self.{nombre}', codigo)
+        # Inyectar self.nombre = [] en configurar si no está ya
+        m_conf = re.search(r'def configurar\(self\)[^:]*:(.*?)(?=\n    def |\Z)', codigo, re.DOTALL)
+        conf_body = m_conf.group(1) if m_conf else ''
+        if f'self.{nombre}' not in conf_body:
+            codigo = re.sub(
+                r'(def configurar\(self\)[^:]*:\n)',
+                r'\1        self.' + nombre + ' = []\n',
+                codigo,
+            )
 
     # Inyectar inicializaciones para atributos usados en actualizar/dibujar pero no definidos
     faltantes = _attrs_no_inicializados(codigo)

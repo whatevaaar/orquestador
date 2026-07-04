@@ -201,6 +201,43 @@ def prueba_import_motor_sin_escena_se_completa():
     assert 'Escena' in resultado.split('from motor import')[1].split('\n')[0]
 
 
+def prueba_corrige_lista_sin_self_en_dibujar():
+    # Reproduce el bug: particulas.append(...) sin self. en dibujar
+    codigo = (
+        "from motor import Contexto, Escena\n"
+        "class X(Escena):\n"
+        "    def configurar(self):\n"
+        "        self.t = 0.0\n"
+        "    def actualizar(self, ctx):\n"
+        "        self.t = ctx.segundos_transcurridos\n"
+        "    def dibujar(self, surface):\n"
+        "        particulas.append((1, 2))\n"
+        "        for p in particulas:\n"
+        "            pass\n"
+    )
+    resultado = _sanitizar(codigo)
+    assert 'self.particulas.append' in resultado
+    assert 'self.particulas = []' in resultado
+    assert 'for p in self.particulas' in resultado
+
+
+def prueba_no_toca_lista_local_en_dibujar():
+    # Si la lista está asignada localmente ANTES de usarla, no se toca
+    codigo = (
+        "from motor import Contexto, Escena\n"
+        "class X(Escena):\n"
+        "    def configurar(self):\n"
+        "        self.t = 0.0\n"
+        "    def actualizar(self, ctx):\n"
+        "        self.t = ctx.segundos_transcurridos\n"
+        "    def dibujar(self, surface):\n"
+        "        items = []\n"
+        "        items.append(1)\n"
+    )
+    resultado = _sanitizar(codigo)
+    assert 'self.items.append' not in resultado
+
+
 def prueba_no_inyecta_metodos_como_atributos():
     # Reproduce el bug: _dibujar_mar es método pero se usaba en dibujar → se inyectaba 0.0
     codigo = (
